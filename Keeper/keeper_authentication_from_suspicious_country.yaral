@@ -1,0 +1,32 @@
+rule keeper_authentication_from_suspicious_country
+{
+  meta:
+     subject = "keeper authentication from suspicious country"
+     description = "Detects Keeper login events originating from suspicious countries"
+     tactic = "Credential Access"
+     author = "Jason Walker @tresscross"
+     confidence = "Medium"
+     severity = "Medium"
+     falsePositives = "legitimate activity from user"
+
+  events:
+    $e.metadata.event_type = "USER_LOGIN"
+    $e.metadata.log_type = "KEEPER"
+    $e.target.user.userid = $user
+    $e.target.location.country_or_region in %Suspicious_Countries //create watchlist based on organization
+     
+  match:
+    $user over 1h
+
+  outcome: 
+    $p_ip = array_distinct($e.principal.ip)
+    $p_user = array_distinct($e.target.user.userid)
+    $target_state = array_distinct($e.principal.ip_geo_artifact.location.state)
+    $target_country_or_region = array_distinct($e.principal.ip_geo_artifact.location.country_or_region)
+    $target_asn = array_distinct($e.principal.ip_geo_artifact.network.asn)
+    $target_carrier_name = array_distinct($e.principal.ip_geo_artifact.network.carrier_name)
+
+  condition:
+    $e
+
+}
