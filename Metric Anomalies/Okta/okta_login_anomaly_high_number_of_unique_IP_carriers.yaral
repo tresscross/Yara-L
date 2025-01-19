@@ -1,0 +1,70 @@
+rule okta_login_anomaly_high_number_of_unique_IP_carriers {
+  meta:
+    author = "Jason Walker @tresscross"
+    description = "Detect anomalous successful login behavior via 30 day behavior analysis, looking for when the user signs in from more unique IP carriers in a day than is typical."
+    tactic = "Credential Access"
+    technique = "Valid Accounts"
+    severity = "Medium"
+    priority = "Medium"
+
+  events:
+    $e.metadata.event_type = "USER_LOGIN"
+    $e.security_result.action = "ALLOW"
+    $e.target.user.userid = $user
+    $e.metadata.log_type = "OKTA"
+    $e.security_result.summary = "User login to Okta" 
+
+  match:
+    $user over 1d
+
+  outcome:
+    $event_count_days_seen = max(metrics.auth_attempts_success( 
+        period:1d, window:30d,
+        metric:num_unique_filter_values,
+        agg:num_metric_periods,
+        target.user.userid: $user,
+        principal.ip_geo_artifact.network.organization_name: *  
+    ))
+
+    $highest_uniq_carrier_daily_count = max(metrics.auth_attempts_success( 
+        period:1d, window:30d,
+        metric:num_unique_filter_values,
+        agg:max,
+        target.user.userid: $user,
+        principal.ip_geo_artifact.network.organization_name: *        
+    ))
+    $average_uniq_carrier_daily_count = max(metrics.auth_attempts_success( 
+        period:1d, window:30d,
+        metric:num_unique_filter_values,
+        agg:avg,
+        target.user.userid: $user,
+        principal.ip_geo_artifact.network.organization_name: *        
+    ))
+
+    $stddev_event_count_window = max(metrics.auth_attempts_success( 
+        period:1d, window:30d,
+        metric:num_unique_filter_values, 
+        agg:stddev,
+        target.user.userid: $user,
+        principal.ip_geo_artifact.network.organization_name: *  
+    ))
+
+    $current_count = count_distinct($e.principal.ip_geo_artifact.network.organization_name) 
+    $anomaly_score = $current_count / $average_uniq_carrier_daily_count
+
+    $t_user = array_distinct($e.target.user.userid)
+    $target_user_agent = array_distinct($e.network.http.user_agent)
+    $principal_ip = array_distinct($e.principal.ip)
+    $principal_ip_country = array_distinct($e.principal.ip_geo_artifact.location.country_or_region)
+    $principal_ip_state = array_distinct($e.principal.ip_geo_artifact.location.state)
+    $principal_ip_city = array_distinct($e.principal.location.city)
+    $principal_ip_carrier = array_distinct($e.principal.ip_geo_artifact.network.carrier_name)
+    $security_result_summary = array_distinct($e.security_result.summary)
+    $principal_user_managers_email_addresses = array_distinct($e.target.user.managers.email_addresses)
+    $target_user_email_addresses = array_distinct($e.target.user.email_addresses)
+    $target_user_userid = array_distinct($e.target.user.userid)
+    $log_source = array_distinct($e.metadata.log_type)
+
+  condition:
+    $e and $event_count_days_seen >= 5 and $anomaly_score > 3
+}
