@@ -1,0 +1,33 @@
+rule dns_query_with_base64_literal_match
+{
+  meta:
+     subject = "dns query with base64 literal match"
+     description = "Matches DNS queries with base64 == chars present, indicating possible DNS tunnelling."
+     author = "Jason Walker"
+     tactic = "Exfiltration"
+     technique = "Automated Exfiltration"
+     confidence = "High"
+     severity = "High"
+
+  events:
+    $dns_query.metadata.event_type = "NETWORK_DNS"
+    (
+    re.regex($dns_query.network.dns.questions.name, `.*==\..*`) OR
+    re.regex($dns_query.network.dns.questions.name, /%3D%3D/ )
+    )
+    $ip = $dns_query.principal.ip
+
+  match:
+    $ip over 1h
+
+
+  outcome:
+    $source_host = array_distinct($ip)
+    $dns_server = array_distinct($dns_query.target.ip)
+    $port = array_distinct($dns_query.principal.port)
+    $domain = array_distinct($dns_query.network.dns.questions.name)
+    $namespace = array_distinct($dns_query.target.namespace)
+
+  condition:
+    $dns_query
+}
