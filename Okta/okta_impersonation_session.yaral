@@ -1,0 +1,45 @@
+rule okta_impersonation_session
+{
+  meta:
+     subject = "okta impersonation session"
+     description = "User.session.impersonation, usually triggered by Okta Support, are rare. This query checks for impersonation events used in LAPSUS$ breach."
+     author = "Jason Walker @tresscross"
+     tactic = "Initial Access"
+     technique = "Valid Accounts"
+     subtechnique = "Cloud Accounts"
+     datasource = "Logon Session"
+     confidence = "Medium"
+     severity = "High"
+     falsePositives = "Legitimate Okta support sessions, can correlate this with a support ticket number."
+
+  events:
+    $login.metadata.vendor_name = "Okta"
+    (
+        $login.metadata.product_event_type = "user.session.impersonation.initiate" OR
+        $login.metadata.product_event_type = "user.session.impersonation.grant" OR
+        $login.metadata.product_event_type = "user.session.impersonation.extend" OR
+        $login.metadata.product_event_type = "user.session.impersonation.end" OR
+        $login.metadata.product_event_type = "user.session.impersonation.revoke"
+    )
+    $login.target.user.userid = $userid
+
+  match:
+    $userid over 1h
+
+  outcome:
+    $action = array_distinct($login.security_result.action)
+    $target_user_agent = array_distinct($login.network.http.user_agent)
+    $principal_ip = array_distinct($login.principal.ip)
+    $principal_ip_country = array_distinct($login.principal.ip_geo_artifact.location.country_or_region)
+    $principal_ip_state = array_distinct($login.principal.ip_geo_artifact.location.state)
+    $principal_ip_city = array_distinct($login.principal.location.city)
+    $security_result_summary = array_distinct($login.security_result.summary)
+    $target_user_email_addresses = array_distinct($login.target.user.email_addresses[0])
+    $target_user_userid = array_distinct($login.target.user.userid)
+    $target_user_name = array_distinct($login.principal.user.user_display_name)
+    $detection_fields_key = array_distinct($login.security_result.detection_fields.key)
+    $detection_fields_value = array_distinct($login.security_result.detection_fields.value)
+
+  condition:
+    $login
+}
