@@ -1,0 +1,52 @@
+rule zscaler_multiple_users_request_url_shortener_potential_phishing {
+
+  meta:
+    author = "Jason Walker @tresscross"
+    description = "Detects potential phishing activity by identifying multiple users visiting a URL shortener in web proxy logs within a short time window."
+    tactic = "Initial Access"
+    technique = "Phishing"
+    false_positives = "Legitimate use of URL shorteners in email campaigns or shared links."
+    data_source = "Zscaler Web Proxy"
+    severity = "Low"
+    priority = "Low"
+
+
+  events:
+    $e.metadata.log_type = "ZSCALER_WEBPROXY"
+    (
+        $e.target.hostname = /bit.ly/ nocase OR
+        $e.target.hostname = /tinyurl.com/ nocase OR
+        $e.target.hostname = /is.gd/ nocase OR
+        $e.target.hostname = /ow.ly/ nocase OR
+        $e.target.hostname = /buff.ly/ nocase OR
+        $e.target.hostname = /rebrandly.com/ nocase OR
+        $e.target.hostname = /bl.ink/ nocase OR
+        $e.target.hostname = /shorte.st/ nocase OR
+    )
+    $user = $e.principal.user.userid
+    $url = $e.target.url
+
+  match:
+    $url over 5m
+
+  outcome:
+    $risk_score = 35
+    $principal_user_userid = array_distinct($e.principal.user.userid)
+    $principal_hostname = array_distinct($e.principal.hostname)
+    $principal_ip = array_distinct($e.principal.ip)
+    $principal_ip_country = array_distinct($e.principal.ip_geo_artifact.location.country_or_region)
+    $principal_ip_state = array_distinct($e.principal.ip_geo_artifact.location.state)
+    $principal_ip_city = array_distinct($e.principal.location.city)
+    $principal_ip_carrier = array_distinct($e.principal.ip_geo_artifact.network.carrier_name)
+    $target_url = array_distinct($e.target.url)
+    $url_hosting_ip = array_distinct($e.target.ip)
+    $url_category = array_distinct($e.security_result.category_details[0])
+    $url_supercategory = array_distinct($e.security_result.category_details[1])
+    $target_ip_country = array_distinct($e.target.ip_geo_artifact.location.country_or_region)
+    $target_ip_state = array_distinct($e.target.ip_geo_artifact.location.state)
+    $target_ip_city = array_distinct($e.target.location.city)
+    $target_ip_carrier = array_distinct($e.target.ip_geo_artifact.network.carrier_name)
+
+  condition:
+    $e and #user > 3
+}
