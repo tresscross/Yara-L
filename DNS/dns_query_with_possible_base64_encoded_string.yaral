@@ -1,0 +1,39 @@
+rule dns_query_with_possible_base64_encoded_string
+{
+  meta:
+     subject = "dns query with possible base64 encoded string"
+     description = "Matches Base64 encoded string by decoding subdomains and looking for valid strings, needs to be tuned aggresively."
+     author = "Jason Walker @tresscross"
+     tactic = "Exfiltration"
+     technique = "Automated Exfiltration"
+     confidence = "High"
+     severity = "High"
+
+  events:
+    $dns_query.metadata.event_type = "NETWORK_DNS"
+    $decoded_dns_query = strings.base64_decode(re.capture($dns_query.network.dns.questions.name, "\\b([A-Za-z0-9+/]{4,})(?:=|==)?\\b")) //this decodes split subdomain strings
+    $decoded_dns_query != "" //ensures there is a decoded string
+    $decoded_dns_query != $subdomain //makes sure that the two strings are different
+    $decoded_dns_query != /�/ nocase //filter out non base64
+    
+    $subdomain = re.capture($dns_query.network.dns.questions.name, "\\b([A-Za-z0-9+/]{4,})(?:=|==)?\\b") //captures subdomains
+
+    re.regex(strings.base64_decode(re.capture($dns_query.network.dns.questions.name, "\\b([A-Za-z0-9+/]{4,})(?:=|==)?\\b")), "^.{10,}$") // decoded string must be 10+ chars
+
+    $ip = $dns_query.principal.ip
+
+match:
+    $ip over 10m
+
+  outcome:
+    $base64strings = array_distinct($decoded_dns_query)
+    $subdomains = array_distinct($subdomain)
+    $source_host = array_distinct($ip)
+    $dns_server = array_distinct($dns_query.target.ip)
+    $port = array_distinct($dns_query.principal.port)
+    $domain = array_distinct($dns_query.network.dns.questions.name)
+    $namespace = array_distinct($dns_query.target.namespace)
+
+  condition:
+    $dns_query
+}
