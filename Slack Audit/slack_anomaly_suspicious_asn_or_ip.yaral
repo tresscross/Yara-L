@@ -1,0 +1,34 @@
+rule slack_anomaly_suspicious_asn_or_ip {
+
+  meta:
+    author = "Jason Walker @tresscross"
+    description = "An ASN was on a list of bad ASNs."
+    severity = "Low"
+
+  events:
+    $e.metadata.log_type = "SLACK_AUDIT"
+    $e.metadata.product_event_type = "anomaly"
+    (
+        $e.security_result.description = /asn/ nocase OR
+        $e.security_result.description = /ip_address/ nocase
+    )
+    $user = $e.principal.user.userid
+
+match:
+    $user over 5m
+
+  outcome:
+    $p_ip = array_distinct($e.principal.ip)
+    $p_user = array_distinct($e.target.user.userid)
+    $target_state = array_distinct($e.principal.ip_geo_artifact.location.state)
+    $target_country_or_region = array_distinct($e.principal.ip_geo_artifact.location.country_or_region)
+    $target_asn = array_distinct($e.principal.ip_geo_artifact.network.asn)
+    $target_carrier_name = array_distinct($e.principal.ip_geo_artifact.network.carrier_name)
+    $reason = array_distinct($e.security_result.description)
+    $result = array_distinct($e.security_result.action)
+    $useragent = array_distinct($e.network.http.user_agent)
+    $event_type = array_distinct($e.metadata.event_type)
+
+  condition:
+    $e
+}
