@@ -1,0 +1,31 @@
+rule slack_anomaly_search_volume {
+
+  meta:
+    author = "Jason Walker @tresscross"
+    description = "The search volume detection generates alerts when it detects anomalous behavior such as a user issuing searches under suspicious circumstances."
+    severity = "Low"
+
+  events:
+    $e.metadata.log_type = "SLACK_AUDIT"
+    $e.metadata.product_event_type = "anomaly"
+    $e.security_result.description = /search_volume/ nocase
+    $user = $e.principal.user.userid
+
+match:
+    $user over 5m
+
+  outcome:
+    $p_ip = array_distinct($e.principal.ip)
+    $p_user = array_distinct($e.target.user.userid)
+    $target_state = array_distinct($e.principal.ip_geo_artifact.location.state)
+    $target_country_or_region = array_distinct($e.principal.ip_geo_artifact.location.country_or_region)
+    $target_asn = array_distinct($e.principal.ip_geo_artifact.network.asn)
+    $target_carrier_name = array_distinct($e.principal.ip_geo_artifact.network.carrier_name)
+    $reason = array_distinct($e.security_result.description)
+    $result = array_distinct($e.security_result.action)
+    $useragent = array_distinct($e.network.http.user_agent)
+    $event_type = array_distinct($e.metadata.event_type)
+
+  condition:
+    $e
+}
