@@ -1,0 +1,40 @@
+rule entraid_authenticator_deletion_attempts {
+
+  meta:
+    author = "Jason Walker @tresscross"
+    description = "Detects when an EntraID authentication attempt is attempted to be deleted, this rule will capture both success and failures."
+    tactic = "Defense Evasion"
+    technique = "Indicator Removal"
+    data_source = "Entra_ID"
+    severity = "Low"
+    priority = "Low"
+
+  events:
+    $e.metadata.product_name = "Azure AD Directory Audit" 
+    $e.target.application = "Authentication Methods"  
+    (
+        $e.security_result.description = /user failed to delete microsoft authenticator authentication method/ nocase OR
+        $e.security_result.description = /user deleted authenticator app with notification and code/ nocase OR
+        $e.security_result.description = /user deleted microsoft authenticator authentication method/ nocase
+    )
+    $e.principal.user.userid = $user
+    $e.security_result.description = $attempt_type
+
+  match:
+    $user, $attempt_type over 1h
+
+  outcome:
+    $risk_score = 30
+
+    $principal_user_userid = array_distinct($e.principal.user.userid)
+    $principal_ip = array_distinct($e.principal.ip)
+    $principal_ip_country = array_distinct($e.principal.ip_geo_artifact.location.country_or_region)
+    $principal_ip_state = array_distinct($e.principal.ip_geo_artifact.location.state)
+    $principal_ip_city = array_distinct($e.principal.location.city)
+    $principal_ip_carrier = array_distinct($e.principal.ip_geo_artifact.network.carrier_name)
+
+    $action = array_distinct($e.security_result.description)
+
+  condition:
+    $e
+}
