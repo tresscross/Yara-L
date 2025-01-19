@@ -1,0 +1,92 @@
+rule zscaler_beaconing_pattern_to_public_ip_from_suspicious_country
+{
+  meta:
+     subject = "zscaler beaconing pattern to public ip from suspicious country"
+     description = "Detects Zscaler activity matching beaconing intervals between a host and a domain, where the hosting ip is from a suspicious country."
+     author = "Jason Walker @tresscross"
+     tactic = "Command and Control"
+     technique = "Application Layer Protocol"
+     subtechnique = "Web Protocols"
+     datasource = "Network Traffic"
+     confidence = "Medium"
+     severity = "Medium"
+
+  events:
+    $First = $e1.metadata.event_timestamp.seconds
+    $e1.metadata.product_name = "Zscaler Web Proxy"
+    $e1.principal.hostname = $host
+    (
+        NOT net.ip_in_range_cidr($e1.target.ip, "10.0.0.0/8") AND
+        NOT net.ip_in_range_cidr($e1.target.ip, "172.16.0.0/12") AND
+        NOT net.ip_in_range_cidr($e1.target.ip, "192.168.0.0/16")
+    )
+    $e1.target.url = $domain
+
+    $Second = $e2.metadata.event_timestamp.seconds
+    $e2.metadata.product_name = "Zscaler Web Proxy"
+    $e2.principal.hostname = $host
+    (
+        NOT net.ip_in_range_cidr($e2.target.ip, "10.0.0.0/8") AND
+        NOT net.ip_in_range_cidr($e2.target.ip, "172.16.0.0/12") AND
+        NOT net.ip_in_range_cidr($e2.target.ip, "192.168.0.0/16")
+    )
+    $e2.target.url = $domain
+
+    $Third = $e3.metadata.event_timestamp.seconds
+    $e3.metadata.product_name = "Zscaler Web Proxy"
+    $e3.principal.hostname = $host
+    (
+        NOT net.ip_in_range_cidr($e3.target.ip, "10.0.0.0/8") AND
+        NOT net.ip_in_range_cidr($e3.target.ip, "172.16.0.0/12") AND
+        NOT net.ip_in_range_cidr($e3.target.ip, "192.168.0.0/16")
+    )
+    $e3.target.url = $domain
+
+    $Fourth = $e4.metadata.event_timestamp.seconds
+    $e4.metadata.product_name = "Zscaler Web Proxy"
+    $e4.principal.hostname = $host
+    (
+        NOT net.ip_in_range_cidr($e4.target.ip, "10.0.0.0/8") AND
+        NOT net.ip_in_range_cidr($e4.target.ip, "172.16.0.0/12") AND
+        NOT net.ip_in_range_cidr($e4.target.ip, "192.168.0.0/16")
+    )
+    $e4.target.url = $domain
+
+    (    
+        $First - $Second = 120 AND
+        $Second - $Third = 120 AND
+        $Third - $Fourth = 120 
+    ) OR
+    (    
+        $First - $Second = 60 AND
+        $Second - $Third = 60 AND
+        $Third - $Fourth = 60 
+    ) OR
+    (    
+        $First - $Second = 300 AND
+        $Second - $Third = 300 AND
+        $Third - $Fourth = 300
+    )
+
+    $e1.target.ip_geo_artifact.location.country_or_region in %Suspicious_Countries //create a watchlist for countries you want to monitor
+
+  match:
+   $host, $domain over 10m
+
+  outcome:
+    $source = array_distinct($e1.principal.ip)
+    $destination = array_distinct($e1.target.url)
+    $destinationip = array_distinct($e1.target.ip)
+    $target_ip_country = array_distinct($e1.target.ip_geo_artifact.location.country_or_region)
+    $target_ip_state = array_distinct($e1.target.ip_geo_artifact.location.state)
+    $target_ip_city = array_distinct($e1.target.ip_geo_artifact.location.city)
+    $target_ip_carrier = array_distinct($e1.target.ip_geo_artifact.network.carrier_name)
+    $FirstTimestap = array_distinct($First)
+    $SecondTimestamp = array_distinct($Second)
+    $ThirdTimestamp = array_distinct($Third)
+    $FourthTimestamp = array_distinct($Fourth) 
+
+
+ condition:
+   $e1 and $e2 and $e3 and $e4
+}
