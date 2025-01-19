@@ -1,0 +1,37 @@
+rule o365_forwarding_rule_created {
+  meta:
+    subject = "Forwarding Rule Created by User in Office 365"
+    author = "Jason Walker @tresscross"
+    description = "Detects when a user created an inbox rule to forward email based on a condition. Often used by threat actors after compromising an account."
+    severity = "Medium"
+    tactic = "Persistence"
+    technique = "Account Manipulation"
+    subtechnique = "Email Forwarding Rule"
+    tool = "Microsoft Office 365"
+    datasource = "Office 365 Logs"
+    category = "Email Security"
+    product = "Office 365"
+    logsource = "Email and Identity Management"
+    actor = "Potential Insider or External Attacker"
+    confidence = "Medium"
+
+  events:
+    $e.metadata.log_type = "OFFICE_365"
+    $e.metadata.event_type = "SETTING_CREATION"
+    $e.metadata.product_event_type = "New-InboxRule"
+    $e.security_result.summary = "ForwardTo"
+    $user = $e.principal.user.userid
+
+  outcome:
+
+    $p_user = array_distinct($e.principal.user.userid)
+    $p_ip = array_distinct($e.principal.ip)
+    $user_email = array_distinct($e.principal.user.email_addresses[0])
+    $hostname = array_distinct($e.principal.hostname)
+    $detection_reason = array_distinct($e.security_result.detection_fields[4].value)
+    $forward_to = array_distinct($e.security_result.rule_labels[2].value)
+    $forward_from = array_distinct($e.security_result.rule_labels[3].value)
+
+  condition:
+    $e
+}
