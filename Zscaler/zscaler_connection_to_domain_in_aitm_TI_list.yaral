@@ -1,0 +1,35 @@
+rule zscaler_connection_to_domain_in_aitm_TI_list {
+
+  meta:
+    author = "Jason Walker @tresscross"
+    description = "Monitors activity towards domains known to be linked to AiTM campaigns"
+    reference = "https://assets.kpmg.com/content/dam/kpmgsites/in/pdf/2022/08/10-August-2022-AiTM-Phishing-Campaign-Targets-Microsoft-Email-Service-Users.pdf.coredownload.inline.pdf"
+    severity = "High"
+    tactic = "Initial Access"
+    technique = "Phishing"
+    subtechnique = "Spearphishing via Service"
+    tool = "ZScaler"
+
+  events:
+    $base_domain = strings.extract_domain($e.target.url)
+    $base_domain in %AiTM_Phishing_domains //popul;ate this with TI domains
+
+    $e.principal.user.userid = $user
+
+  match:
+    $user over 5m
+
+  outcome:
+    $original_domain = array_distinct(strings.extract_domain($e.target.url))
+    $source = array_distinct($e.principal.ip)
+    $destination = array_distinct($e.target.url)
+    $destinationip = array_distinct($e.target.ip)
+    $target_ip_country = array_distinct($e.target.ip_geo_artifact.location.country_or_region)
+    $target_ip_state = array_distinct($e.target.ip_geo_artifact.location.state)
+    $target_ip_city = array_distinct($e.target.ip_geo_artifact.location.city)
+    $target_ip_carrier = array_distinct($e.target.ip_geo_artifact.network.carrier_name)
+    $p_user = array_distinct($e.principal.user.userid)
+
+  condition:
+    $e
+}
