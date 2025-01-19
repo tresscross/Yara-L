@@ -1,0 +1,57 @@
+rule okta_verify_abnormal_push_attempts_before_success
+{
+  meta:
+     subject = "Okta Verify - High number of push attempts before successful authentication"
+     author = "Jason Walker @tresscross"
+     description = "Detects a successful login after multiple failed MFA pushes"
+     tactic = "Initial Access"
+     reference = "https://sec.okta.com/pushfatigueworkflows"
+     mitre_attack_tactic = "Credential Access"
+     mitre_attack_technique = "Brute Force"
+     mitre_attack_url = "https://attack.mitre.org/techniques/T1110/"
+     confidence = "High"
+     severity = "High"
+
+  events:
+    $push.metadata.log_type = "OKTA"
+    $push.metadata.event_type = "USER_UNCATEGORIZED"
+    $push.metadata.product_event_type = "system.push.send_factor_verify_push"
+    $push.extensions.auth.auth_details != /poll/
+    $push.network.parent_session_id = $parent_session_id
+    $log_id = $push.metadata.product_log_id
+
+    $auth.metadata.event_type = "USER_LOGIN"
+    $auth.metadata.product_event_type = "user.authentication.auth_via_mfa"
+
+    $push.metadata.log_type = "OKTA"
+    $auth.security_result.action = "ALLOW"
+    $auth.network.parent_session_id = $parent_session_id
+
+    $auth.principal.ip != $push.principal.ip 
+
+  match:
+    $parent_session_id over 15m before $auth
+
+  outcome:
+    $push_principal_ip = array_distinct($push.principal.ip)
+    $push_principal_ip_country = array_distinct($push.principal.ip_geo_artifact.location.country_or_region)
+    $push_principal_ip_state = array_distinct($push.principal.ip_geo_artifact.location.state)
+    $push_principal_ip_city = array_distinct($push.principal.location.city)
+    $push_time = max($push.metadata.event_timestamp.seconds)
+    $auth_time = min($auth.metadata.event_timestamp.seconds)
+    $push_security_result_summary = array_distinct($push.security_result.summary)
+    $push_target_user_userid = array_distinct($push.target.user.userid)
+    $push_security_result_risk_reason = array_distinct($push.security_result.detection_fields["Risk Reasons"])
+    $push_count_before_success = count($push.network.parent_session_id)
+
+    $auth_target_user_agent = array_distinct($auth.network.http.user_agent)
+    $auth_principal_ip = array_distinct($auth.principal.ip)
+    $auth_principal_ip_country = array_distinct($auth.principal.ip_geo_artifact.location.country_or_region)
+    $auth_principal_ip_state = array_distinct($auth.principal.ip_geo_artifact.location.state)
+    $auth_principal_ip_city = array_distinct($auth.principal.location.city)
+    $auth_security_result_summary = array_distinct($auth.security_result.summary)
+    $auth_target_user_userid = array_distinct($auth.target.user.userid)
+
+  condition:
+    #log_id >= 10 and $auth and ($push_time <= $auth_time)
+}
