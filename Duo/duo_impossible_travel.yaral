@@ -1,0 +1,103 @@
+rule duo_impossible_travel {
+  meta:
+    subject = "Impossible Travel Detected in Duo"
+    author = "Jason Walker @tresscross"
+    description = "Detects user login attempts to Duo from geographically distant locations within a short time frame, which is often an indicator of account compromise or unauthorized access."
+    severity = "Medium"
+    tactic = "Credential Access"
+    technique = "Valid Accounts"
+    subtechnique = "Geographically Impossible Access"
+    tool = "Duo"
+    product = "Duo"
+    actor = "Potential External Attacker"    
+    confidence = "Medium"
+
+
+   events:
+        $e1.metadata.event_type = "USER_LOGIN"
+        $e1.security_result.action = "ALLOW"
+        $e1.metadata.log_type = "DUO_AUTH"
+        NOT $e1.principal.ip = "0.0.0.0"
+
+        // match variables
+        $user = $e1.target.user.userid
+        $e1_lat = $e1.principal.ip_geo_artifact.location.region_coordinates.latitude
+        $e1_long = $e1.principal.ip_geo_artifact.location.region_coordinates.longitude
+
+        // ensure consistent event sequencing, i.e., $e1 is before $e2
+        $e1.metadata.event_timestamp.seconds < $e2.metadata.event_timestamp.seconds
+        // check the $e1 and $e2 coordinates represent different locations
+        $e1_lat != $e2_lat
+        $e1_long != $e2_long
+
+        $e2.metadata.event_type = "USER_LOGIN"
+        $e2.security_result.action = "ALLOW"
+        $e2.metadata.log_type = "DUO_AUTH"
+        NOT $e2.principal.ip = "0.0.0.0"
+
+        // match variables
+        $user = $e2.target.user.userid
+        $e2_lat = $e2.principal.ip_geo_artifact.location.region_coordinates.latitude
+        $e2_long = $e2.principal.ip_geo_artifact.location.region_coordinates.longitude
+
+    match:
+        $user, 
+        $e1_lat, 
+        $e1_long, 
+        $e2_lat, 
+        $e2_long 
+        over 6h
+
+    outcome:
+        // calculate the interval between first and last event, in seconds
+        $duration_hours = cast.as_int(
+            min(
+                ($e2.metadata.event_timestamp.seconds - $e1.metadata.event_timestamp.seconds) 
+                / 3600
+            )
+        )
+
+        // calculate distance between login events, and convert results into kilometers
+        // - math.ceil rounds up a float up to the nearest int
+        $distance_kilometers = math.ceil(
+            max(
+                math.geo_distance(
+                    $e1_long,
+                    $e1_lat,
+                    $e2_long,
+                    $e2_lat
+                )
+            ) 
+            // convert the math.geo_distance result from meters to kilometers
+            / 1000 
+        )
+
+        // calculate the speed in KPH
+        $kph = math.ceil($distance_kilometers / $duration_hours)
+
+        // // generate risk_score based on KPH, i.e., speed over distance travelled
+        $risk_score = (
+            if($kph >= 100 and $kph <= 249, 35) +
+            if($kph > 250 and $kph <= 449, 50) +
+            if($kph > 500 and $kph <= 999, 75) +
+            if($kph >= 1000, 90)
+        ) 
+
+        // change this according to your requirements
+        $risk_score_threshold = 50
+
+        $p_ip = array_distinct($e1.principal.ip)
+        $t_ip = array_distinct($e2.target.ip)
+        $p_user = array_distinct($e1.target.user.userid)
+        $principal_state = array_distinct($e1.principal.ip_geo_artifact.location.state)
+        $principal_country_or_region = array_distinct($e1.principal.ip_geo_artifact.location.country_or_region)
+        $principal_asn = array_distinct($e1.principal.ip_geo_artifact.network.asn)
+        $principal_carrier_name = array_distinct($e1.principal.ip_geo_artifact.network.carrier_name)
+        $target_state = array_distinct($e2.principal.ip_geo_artifact.location.state)
+        $target_country_or_region = array_distinct($e2.principal.ip_geo_artifact.location.country_or_region)
+        $target_asn = array_distinct($e2.principal.ip_geo_artifact.network.asn)
+        $target_carrier_name = array_distinct($e2.principal.ip_geo_artifact.network.carrier_name)
+
+    condition:
+        $e1 and $e2 and $risk_score >= $risk_score_threshold
+}
