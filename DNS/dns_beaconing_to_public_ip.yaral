@@ -1,0 +1,89 @@
+rule dns_beaconing_to_public_ip
+{
+  meta:
+     subject = "dns beaconing to public ip"
+     description = "Detects DNS beaconing over common intervals towards public IP addresses."
+     author = "Jason Walker @tresscross"
+     tactic = "Command and Control"
+     technique = "Application Layer Protocol"
+     subtechnique = "DNS"
+     datasource = "Network Traffic"
+     confidence = "High"
+     severity = "High"
+
+  events:
+    $First = $e1.metadata.event_timestamp.seconds
+    $e1.metadata.event_type = "NETWORK_DNS"
+    $e1.principal.hostname = $host
+    (
+        NOT net.ip_in_range_cidr($e1.target.ip, "10.0.0.0/8") AND
+        NOT net.ip_in_range_cidr($e1.target.ip, "172.16.0.0/12") AND
+        NOT net.ip_in_range_cidr($e1.target.ip, "192.168.0.0/16")
+    )
+    $e1.network.dns.questions.name = $domain
+
+    $Second = $e2.metadata.event_timestamp.seconds
+    $e2.metadata.event_type = "NETWORK_DNS"
+    $e2.principal.hostname = $host
+    (
+        NOT net.ip_in_range_cidr($e2.target.ip, "10.0.0.0/8") AND
+        NOT net.ip_in_range_cidr($e2.target.ip, "172.16.0.0/12") AND
+        NOT net.ip_in_range_cidr($e2.target.ip, "192.168.0.0/16")
+    )
+    $e2.network.dns.questions.name = $domain
+
+    $Third = $e3.metadata.event_timestamp.seconds
+    $e3.metadata.event_type = "NETWORK_DNS"
+    $e3.principal.hostname = $host
+    (
+        NOT net.ip_in_range_cidr($e3.target.ip, "10.0.0.0/8") AND
+        NOT net.ip_in_range_cidr($e3.target.ip, "172.16.0.0/12") AND
+        NOT net.ip_in_range_cidr($e3.target.ip, "192.168.0.0/16")
+    )
+    $e3.network.dns.questions.name = $domain
+
+    $Fourth = $e4.metadata.event_timestamp.seconds
+    $e4.metadata.event_type = "NETWORK_DNS"
+    $e4.principal.hostname = $host
+    (
+        NOT net.ip_in_range_cidr($e4.target.ip, "10.0.0.0/8") AND
+        NOT net.ip_in_range_cidr($e4.target.ip, "172.16.0.0/12") AND
+        NOT net.ip_in_range_cidr($e4.target.ip, "192.168.0.0/16")
+    )
+    $e4.network.dns.questions.name = $domain
+
+    (    
+        $First - $Second = 120 AND
+        $Second - $Third = 120 AND
+        $Third - $Fourth = 120 
+    ) OR
+    (    
+        $First - $Second = 60 AND
+        $Second - $Third = 60 AND
+        $Third - $Fourth = 60 
+    ) OR
+    (    
+        $First - $Second = 300 AND
+        $Second - $Third = 300 AND
+        $Third - $Fourth = 300
+    )
+
+  match:
+   $host, $domain over 10m
+
+  outcome:
+    $source = array_distinct($e1.principal.hostname)
+    $destination = array_distinct($e1.network.dns.questions.name)
+    $destinationip = array_distinct($e1.target.ip)
+    $target_ip_country = array_distinct($e1.target.ip_geo_artifact.location.country_or_region)
+    $target_ip_state = array_distinct($e1.target.ip_geo_artifact.location.state)
+    $target_ip_city = array_distinct($e1.target.ip_geo_artifact.location.city)
+    $target_ip_carrier = array_distinct($e1.target.ip_geo_artifact.network.carrier_name)
+    $FirstTimestap = array_distinct($First)
+    $SecondTimestamp = array_distinct($Second)
+    $ThirdTimestamp = array_distinct($Third)
+    $FourthTimestamp = array_distinct($Fourth)
+
+ condition:
+   $e1 and $e2 and $e3 and $e4
+}
