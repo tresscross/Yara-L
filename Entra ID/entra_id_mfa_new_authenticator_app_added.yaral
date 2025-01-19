@@ -1,0 +1,37 @@
+rule entra_id_mfa_new_authenticator_app_added
+{
+  meta:
+     subject = "entra id mfa new authenticator app added"
+     description = "This rule monitors and detects when a user adds new authenticator app for Azure AD Multi-Factor Authentication (MFA), indicating potential suspicious activity."
+     author = "Jason Walker @tresscross"
+     tactic = "Persistence"
+     technique = "Modify Authentication Process"
+     subtechnique = "Multi-Factor Authentication"
+     product = "Microsoft"
+     confidence = "Medium"
+     severity = "Low"
+
+  events:
+    $e.metadata.log_type = "OFFICE_365"
+    $e.metadata.product_event_type = /update user/ nocase
+    $user = $e.target.user.userid
+    $e.security_result.detection_fields.value = "Azure MFA StrongAuthenticationService"
+
+  match:
+    $user over 1h
+
+  outcome:
+    $device = array_distinct($e.target.asset.hostname)
+    $Device_Token = array_distinct($e.target.asset.attribute.labels[0].value)
+    $software = array_distinct($e.security_result[0].detection_fields[4].value)
+    $software_version = array_distinct($e.target.asset.software[0].version)
+    $user_email = array_distinct($e.target.user.email_addresses[0])
+    $result = array_distinct($e.security_result[1].summary)
+    $user_title = array_distinct($e.target.user.title)
+    $user_department = array_distinct($e.target.user.department[0])
+    $user_office = array_distinct($e.target.user.office_address.city)
+    $p_user = array_distinct($e.target.user.userid)
+
+  condition:
+    $e
+  }
