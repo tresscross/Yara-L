@@ -1,0 +1,37 @@
+rule gcp_cloud_audit_chronicle_rule_activity {
+
+  meta:
+    author = "Jason Walker @tresscross"
+    description = "Detects Chronicle rule modification activity. Security team should be review access and whitelist expected locations when interacting with Chronicle."
+    tactic = "Credential Access"
+    technique = "Valid Accounts"
+    severity = "High"
+    priority = "Medium"
+    data_source = "GCP"
+
+  events:
+
+    $e.metadata.log_type = "GCP_CLOUDAUDIT"
+    (   
+        $e.metadata.product_event_type = "google.cloud.chronicle.v1alpha.RuleService.CreateRule" OR
+        $e.metadata.product_event_type = "google.cloud.chronicle.v1alpha.RuleService.UpdateRule" OR
+        $e.metadata.product_event_type = "google.cloud.chronicle.v1alpha.RuleService.UpdateRuleDeployment" OR
+        $e.metadata.product_event_type = "google.cloud.chronicle.v1alpha.RuleService.DeleteRule"
+    )
+    $e.principal.ip = $ip
+
+  match:
+    $ip over 10m
+
+  outcome:
+    $event_type = array_distinct($e.metadata.product_event_type)
+    $target_user_agent = array_distinct($e.network.http.user_agent)
+    $principal_ip = array_distinct($e.principal.ip)
+    $principal_ip_country = array_distinct($e.principal.ip_geo_artifact.location.country_or_region)
+    $principal_ip_state = array_distinct($e.principal.ip_geo_artifact.location.state)
+    $principal_ip_city = array_distinct($e.principal.location.city)
+    $principal_ip_carrier = array_distinct($e.principal.ip_geo_artifact.network.carrier_name)
+
+  condition:
+    $e
+}
