@@ -1,0 +1,39 @@
+rule okta_multiple_application_deleted
+{
+  meta:
+     subject = "okta multiple application deleted"
+     description = "Detects attempts to delete an Okta application. An adversary may attempt to modify, deactivate, or delete an Okta application in order to weaken an organization’s security controls or disrupt their business operations."
+     author = "Jason Walker @tresscross"
+     tactic = "Impact"
+     technique = "Account Access Removal"
+     product = "Okta"
+     logsource = "SSO"
+     confidence = "High"
+     severity = "Medium"
+     falsePositives = "legitimate okta administration, reach out to user for confirmation"
+
+  events:
+    $e.metadata.vendor_name = "Okta"
+    $e.metadata.product_event_type = "application.lifecycle.delete"
+    $e.principal.user.userid = $userid
+
+  match:
+    $userid over 5m
+
+  outcome:
+    $action = array_distinct($e.security_result.summary)
+    $target_user_agent = array_distinct($e.network.http.user_agent)
+    $principal_ip = array_distinct($e.principal.ip)
+    $principal_ip_country = array_distinct($e.principal.ip_geo_artifact.location.country_or_region)
+    $principal_ip_state = array_distinct($e.principal.ip_geo_artifact.location.state)
+    $principal_ip_city = array_distinct($e.principal.location.city)
+    $security_result_summary = array_distinct($e.security_result.summary)
+    $target_user_email_addresses = array_distinct($e.principal.user.email_addresses[0])
+    $target_user_userid = array_distinct($e.principal.user.userid)
+    $target_user_name = array_distinct($e.principal.user.user_display_name)
+    $apps = array_distinct($e.target.application)
+    $resource = array_distinct($e.target.resource.name)
+
+  condition:
+    #e > 2
+}
