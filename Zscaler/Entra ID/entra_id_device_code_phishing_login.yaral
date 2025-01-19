@@ -1,0 +1,47 @@
+rule entra_id_device_code_phishing_login {
+
+  meta:
+    author = "Jasoon Walker @tresscross"
+    description = "Detects when there is both a successful login and a login indicating the device code was entered to authenticate. This is an unusual authentication method for a user and should be investigated as such."
+    tactic = "Initial Access"
+    technique = "Phishing"
+    severity = "High"
+
+  events:
+    $e1.metadata.event_type = "USER_LOGIN" 
+    $e1.metadata.log_type = "AZURE_AD"
+    $e1.security_result.rule_id = "50199"
+    $user = $e1.target.user.userid
+
+    $e2.metadata.event_type = "USER_LOGIN" 
+    $e2.metadata.log_type = "AZURE_AD"
+    $e2.security_result.rule_id = "0"
+    $user = $e2.target.user.userid
+
+  match:
+    $user over 5m
+
+  outcome:
+    $username = array_distinct($e1.target.user.userid)
+    $application = array_distinct($e1.target.application)
+    $platform = array_distinct($e1.principal.platform)
+    $security_description = array_distinct($e1.security_result.description)
+    $error_id = array_distinct($e1.security_result.rule_id)
+    $ip_addr = array_distinct($e1.principal.ip)
+    $principal_state = array_distinct($e1.principal.ip_geo_artifact.location.state)
+    $principal_country_or_region = array_distinct($e1.principal.ip_geo_artifact.location.country_or_region)
+    $principal_carrier_name = array_distinct($e1.principal.ip_geo_artifact.network.carrier_name)
+    
+    $username2 = array_distinct($e2.target.user.userid)
+    $application2 = array_distinct($e2.target.application)
+    $platform2 = array_distinct($e2.principal.platform)
+    $security_description2 = array_distinct($e2.security_result.description)
+    $error_id2 = array_distinct($e2.security_result.rule_id)
+    $ip2 = array_distinct($e2.principal.ip)
+    $principal_state2 = array_distinct($e2.principal.ip_geo_artifact.location.state)
+    $principal_country_or_region2 = array_distinct($e2.principal.ip_geo_artifact.location.country_or_region)
+    $principal_carrier_name2 = array_distinct($e2.principal.ip_geo_artifact.network.carrier_name)
+
+  condition:
+    $e1 and $e2
+}
