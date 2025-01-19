@@ -1,0 +1,36 @@
+rule zscaler_phishing_okta_domain_in_url_path {
+
+  meta:
+    author = "Jason Walker @tresscross"
+    description = "Detects organization's okta domain in URL path, potentially indicating phishing infrastructure."
+    severity = "High"
+    tactic = "Initial Access"
+    technique = "Phishing"
+    subtechnique = "Spearphishing via Service"
+    tool = "ZScaler"
+
+  events:
+    $e.metadata.event_type = "NETWORK_CONNECTION"
+    $e.metadata.log_type = "ZSCALER_WEBPROXY"
+    $base_domain = strings.extract_domain($e.target.url)
+    $base_domain != "okta.com" nocase
+    $e.target.url = /https:\/\/DOMAIN.okta.com/ nocase //REPLACE DOMAIN WITH YOUR ORG OKTA SUBDOMAIN
+    $user = $e.principal.user.userid
+
+  match:
+    $user over 5m
+
+  outcome:
+    $original_domain = array_distinct(strings.extract_domain($e.target.url))
+    $source = array_distinct($e.principal.ip)
+    $destination = array_distinct($e.target.url)
+    $destinationip = array_distinct($e.target.ip)
+    $target_ip_country = array_distinct($e.target.ip_geo_artifact.location.country_or_region)
+    $target_ip_state = array_distinct($e.target.ip_geo_artifact.location.state)
+    $target_ip_city = array_distinct($e.target.ip_geo_artifact.location.city)
+    $target_ip_carrier = array_distinct($e.target.ip_geo_artifact.network.carrier_name)
+    $p_user = array_distinct($e.principal.user.userid)
+
+  condition:
+    $e
+}
