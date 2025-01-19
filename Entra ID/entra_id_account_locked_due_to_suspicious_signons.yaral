@@ -1,0 +1,32 @@
+rule entra_id_account_locked_due_to_suspicious_signons {
+
+  meta:
+    author = "Jason Walker @tresscross"
+    description = "Microsoft Entra ID protects against attacks by analyzing signals including IP traffic and identifying anomalous behavior. Microsoft Entra ID blocks these malicious sign-ins by default and returns IdsLocked error code"
+    severity = "Medium"
+    tool = "Entra ID"
+    tactic = "Credential Access"
+    technique = "Brute Force"
+
+  events:
+    $e.network.http.user_agent != "BAV2ROPC" //users with legacy auth enabled will be locked often
+    $e.security_result.description = "IdsLocked"
+    $e.target.user.userid = $user
+
+match:
+    $user over 5m
+
+  outcome:
+    $target_user_agent = array_distinct($e.network.http.user_agent)
+    $principal_ip = array_distinct($e.principal.ip)
+    $principal_ip_country = array_distinct($e.principal.ip_geo_artifact.location.country_or_region)
+    $principal_ip_state = array_distinct($e.principal.ip_geo_artifact.location.state)
+    $principal_ip_city = array_distinct($e.principal.location.city)
+    $principal_ip_carrier = array_distinct($e.principal.ip_geo_artifact.network.organization_name)
+    $security_result_summary = array_distinct($e.security_result.summary)
+    $principal_user_managers_email_addresses = array_distinct($e.target.user.managers.email_addresses)
+    $target_user_email_addresses = array_distinct($e.target.user.email_addresses)
+    $target_user_userid = array_distinct($e.target.user.userid)
+  condition:
+    $e
+}
