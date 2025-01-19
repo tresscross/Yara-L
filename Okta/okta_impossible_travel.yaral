@@ -41,8 +41,6 @@ rule okta_impossible_travel {
         $e2_lat = $e2.principal.ip_geo_artifact.location.region_coordinates.latitude
         $e2_long = $e2.principal.ip_geo_artifact.location.region_coordinates.longitude
 
-        $e3.principal.ip = $e2.principal.ip
-        $e4.principal.ip = $e1.principal.ip
 
     match:
         $user, 
