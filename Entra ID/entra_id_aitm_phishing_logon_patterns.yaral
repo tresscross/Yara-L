@@ -1,0 +1,52 @@
+rule entra_id_aitm_phishing_logon_patterns {
+
+  meta:
+    author = "Jason Walker @tresscross"
+    description = "Looks for characteristics of AiTM phishing kit sign on properties"
+    tactic = "Initial Access"
+    technique = "Adversary-in-the-Middle"
+    reference = "https://www.x33fcon.com/slides/x33fcon24_-_Pawel_Partyka_-_Unraveling_and_Countering_Adversary-in-the-Middle_Phishing_Attacks.pdf"
+    data_source = "EntraID"
+    severity = "Medium"
+    priority = "Medium"
+
+  events:
+    $e.metadata.log_type = "AZURE_AD"
+    $e.metadata.event_type = "USER_LOGIN"
+    $e.target.application = "OfficeHome"
+    $e.target.resource.name = "OfficeHome"
+
+    $e.target.user.userid = $user
+    $e.principal.ip = $ip
+
+  match:
+    $user over 1h 
+
+  outcome:
+    $risk_score = 50
+    $threshold = max((if($e.network.http.user_agent in %AiTM_Phishlet_IOCs_UserAgent, 1, 0) + //populate with own TI
+                if($e.target.resource.product_object_id in %AiTM_Phishlet_IOCs_ApplicationID, 1, 0) + //populate with own TI
+                if($e.principal.ip_geo_artifact.network.carrier_name in %AiTM_Phishlet_IOCs_Carriers, 1, 0) + //populate with own TI
+                if($e.network.http.user_agent in regex %AiTM_UserAgent_Patterns, 1, 0))) //populate with own TI
+    $principal_user_userid = array_distinct($e.target.user.userid)
+    $principal_hostname = array_distinct($e.principal.hostname)
+    $principal_ip = array_distinct($e.principal.ip)
+    $principal_ip_country = array_distinct($e.principal.ip_geo_artifact.location.country_or_region)
+    $principal_ip_state = array_distinct($e.principal.ip_geo_artifact.location.state)
+    $principal_ip_city = array_distinct($e.principal.location.city)
+    $principal_ip_carrier = array_distinct($e.principal.ip_geo_artifact.network.carrier_name)
+    $user_agent = array_distinct($e.network.http.user_agent)
+    $product_id = array_distinct($e.target.resource.product_object_id)
+
+
+    $principal_application = array_distinct($e.principal.application)
+    $platform = array_distinct($e.principal.platform)
+    $client = array_distinct($e.principal.resource.attribute.labels.key)
+    $client_type = array_distinct($e.principal.resource.attribute.labels.value)
+    $target_application = array_distinct($e.target.application)
+    $target_resource = array_distinct($e.target.resource.name)
+
+
+  condition:
+    $e and $threshold >= 2
+}
