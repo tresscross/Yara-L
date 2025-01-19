@@ -1,0 +1,46 @@
+rule o365_inbox_rule_created_shortly_after_authentication {
+
+  meta:
+    subject = "New Inbox Rule shortly after Entra ID sign-in"
+    author = "Jason Walker @tresscross"
+    description = "Detect potential email compromise by looking for inbox rule modifications following sign in."
+    severity = "Medium"
+    tactic = "Persistence"
+    technique = "Account Manipulation"
+    subtechnique = "Email Forwarding Rule"
+    tool = "Microsoft Office 365"
+    datasource = "Office 365 Logs, Okta Logs"
+    category = "Email Security"
+    product = "Office 365"
+    logsource = "Email and Identity Management"
+    actor = "Potential Insider or External Attacker"
+    confidence = "Medium"
+
+  events:
+    $e1.metadata.log_type = "OFFICE_365"
+    $e1.metadata.product_event_type = "New-InboxRule"
+    $e1.principal.user.userid = $user
+    $e1.principal.ip = $ip
+
+    $login.metadata.log_type = "OFFICE_365"
+    $login.metadata.event_type = "USER_LOGIN"
+    $login.security_result.action = "ALLOW"
+    $login.target.user.userid = $user
+    $login.principal.ip = $ip
+
+  match:
+    $user, $ip  over 1m after $login
+    // match range is primary tuning tool, running at 1m to be careful but may be too sensitive
+
+  outcome:
+    $p_user = array_distinct($login.target.user.userid)
+    $risk_score = 30
+    $InboxRule = array_distinct($e1.target.group.product_object_id)
+    $Summary = array_distinct($e1.security_result.rule_labels[4].value)
+    $fromvalue = array_distinct($e1.security_result.rule_labels[2].value)
+    $p_ip1 = array_distinct($e1.principal.ip)
+    $p_ip2 = array_distinct($login.principal.ip)
+
+  condition:
+    $e1 and $login
+}
