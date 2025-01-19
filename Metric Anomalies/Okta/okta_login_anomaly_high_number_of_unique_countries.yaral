@@ -1,4 +1,4 @@
-rule user_login_anomaly_high_number_of_unique_countries {
+rule okta_login_anomaly_high_number_of_unique_countries {
   meta:
     author = "Jason Walker @tresscross"
     description = "Detect anomalous successful login behavior via 30 day behavior analysis, looking for when the user signs in from more unique countries in a day than is typical."
