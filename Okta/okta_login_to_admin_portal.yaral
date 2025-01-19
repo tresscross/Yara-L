@@ -1,0 +1,41 @@
+rule okta_login_to_admin_portal
+{
+  meta:
+     subject = "okta login to admin portal"
+     description = "Detects when a user attempts to sign into the Okta admin portal"
+     author = "Jason Walker @tresscross"
+     tactic = "Privilege Escalation"
+     technique = "Valid Accounts"
+     subtechnique = "Cloud Accounts"
+     datasource = "Logon Session"
+     product = "Okta"
+     logsource = "SSO"
+     confidence = "High"
+     severity = "Low"
+
+  events:
+    $login.metadata.vendor_name = "Okta"
+    $login.metadata.product_event_type = "user.session.access_admin_app"
+    $login.metadata.event_type = "USER_LOGIN"
+    $login.target.user.userid = $userid
+
+  match:
+    $userid over 1h
+
+  outcome:
+    $action = array_distinct($login.security_result.action)
+    $target_user_agent = array_distinct($login.network.http.user_agent)
+    $principal_ip = array_distinct($login.principal.ip)
+    $principal_ip_country = array_distinct($login.principal.ip_geo_artifact.location.country_or_region)
+    $principal_ip_state = array_distinct($login.principal.ip_geo_artifact.location.state)
+    $principal_ip_city = array_distinct($login.principal.location.city)
+    $security_result_summary = array_distinct($login.security_result.summary)
+    $target_user_email_addresses = array_distinct($login.target.user.email_addresses[0])
+    $target_user_userid = array_distinct($login.target.user.userid)
+    $target_user_name = array_distinct($login.target.user.user_display_name)
+    $detection_fields_key = array_distinct($login.security_result.detection_fields.key)
+    $detection_fields_value = array_distinct($login.security_result.detection_fields.value)
+
+  condition:
+    $login
+}
