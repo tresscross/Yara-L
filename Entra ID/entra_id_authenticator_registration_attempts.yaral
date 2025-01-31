@@ -1,7 +1,7 @@
 rule entra_id_authenticator_registration_attempts {
 
   meta:
-    author = "jason.walker@five9.com"
+    author = "Jasoon Walker @tresscross"
     description = "Detects when an EntraID authentication registration is attempted, this rule will capture both success and failures."
     tactic = "Persistence"
     technique = "Account Manipulation"
