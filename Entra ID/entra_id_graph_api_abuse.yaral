@@ -1,0 +1,32 @@
+rule entra_id_graph_api_abuse {
+
+  meta:
+    author = "Jason
+    description = "This offline risk detection is reported when abnormal GraphAPI traffic or directory enumeration is observed. Suspicious API traffic might suggest that a user is compromised and conducting reconnaissance in the environment."
+    tactic = "Credential Access"
+    technique = "Valid Accounts"
+    severity = "High"
+    references = "https://learn.microsoft.com/en-us/entra/id-protection/concept-identity-protection-risks#suspicious-api-traffic"
+
+  events:
+    $e.metadata.log_type = "AZURE_AD"
+    $e.additional.fields["riskEventType"] = /suspiciousAPITraffic/ nocase
+    $user = $e.target.user.userid
+
+  match:
+    $user over 5m
+
+  outcome:
+    $username = array_distinct($e.target.user.userid)
+    $application = array_distinct($e.target.application)
+    $platform = array_distinct($e.principal.platform)
+    $security_description = array_distinct($e.security_result.description)
+    $error_id= array_distinct($e.security_result.rule_id)
+    $ipaddr = array_distinct($e.principal.ip)
+    $principal_state = array_distinct($e.principal.ip_geo_artifact.location.state)
+    $principal_country_or_region = array_distinct($e.principal.ip_geo_artifact.location.country_or_region)
+    $principal_carrier_name = array_distinct($e.principal.ip_geo_artifact.network.carrier_name)
+
+  condition:
+    $e
+}
