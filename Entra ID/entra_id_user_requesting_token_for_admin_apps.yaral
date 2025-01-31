@@ -1,7 +1,7 @@
 rule entra_id_user_requesting_token_for_admin_apps {
 
   meta:
-    author = "jason.walker@five9.com"
+    author = "Jasoon Walker @tresscross"
     description = "This rule detects sign-in attempts from non-admin users to admin applications in Entra ID."
     tactic = "Execution"
     technique = "Cloud Administration Command"
