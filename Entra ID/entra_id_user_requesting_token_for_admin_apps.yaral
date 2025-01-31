@@ -1,0 +1,45 @@
+rule entra_id_user_requesting_token_for_admin_apps {
+
+  meta:
+    author = "jason.walker@five9.com"
+    description = "This rule detects sign-in attempts from non-admin users to admin applications in Entra ID."
+    tactic = "Execution"
+    technique = "Cloud Administration Command"
+    severity = "High"
+    references = "https://hybridbrothers.com/device-to-entraid/"
+
+  events:
+    $e.metadata.log_type = "AZURE_AD"
+    (
+        $e.target.application = "CLI" or
+        $e.target.application = "PowerShell" or
+        $e.target.application = "Command Line" or
+        $e.target.application = "Management Shell"
+    )
+    (
+        $e.security_result.rule_id = "0" or //successful
+        $e.security_result.rule_id = "50105" //no permissions
+    )
+    $user = $e.target.user.userid
+
+  match:
+    $user over 5m
+
+  outcome:
+    
+    $username = array_distinct($e.target.user.userid)
+    $application = array_distinct($e.target.application)
+    $platform = array_distinct($e.principal.platform)
+    $security_description = array_distinct($e.security_result.description)
+    $error_id= array_distinct($e.security_result.rule_id)
+    $ipaddr = array_distinct($e.principal.ip)
+    $principal_state = array_distinct($e.principal.ip_geo_artifact.location.state)
+    $principal_country_or_region = array_distinct($e.principal.ip_geo_artifact.location.country_or_region)
+    $principal_carrier_name = array_distinct($e.principal.ip_geo_artifact.network.carrier_name)
+
+    $description = "Username: {username}\nApplication: {application}\nPlatform: {platform}\nSecuity Description: {security_description}\nResult ID: {error_id}\nIP: {ipaddr}\nLocation: {principal_state}, {principal_country_or_region}\nCarrier: {principal_carrier_name}"
+    $title = "User {username} requesting AAD token for admin app {application}"
+
+  condition:
+    $e
+}
